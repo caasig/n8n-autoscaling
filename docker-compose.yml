@@ -329,7 +329,9 @@ services:
       - N8N_WORKER_SERVICE_NAME=${N8N_WORKER_SERVICE_NAME} # Service name in this docker-compose file
       - N8N_WORKER_RUNNER_SERVICE_NAME=${N8N_WORKER_RUNNER_SERVICE_NAME} # Task runner sidecar (n8n 2.0)
       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} # Crucial: Should match your project name
-      - COMPOSE_FILE_PATH=/app/docker-compose.yml # Path to compose file in mounted project
+      - COMPOSE_FILE_PATH=/app/docker-compose.yml # Backward-compatible single-file fallback
+      - COMPOSE_FILE_PATHS=${COMPOSE_FILE_PATHS:-} # Optional ordered list; exact launch files are auto-detected by default
+      - COMPOSE_PROJECT_DIRECTORY=${AUTOSCALER_PROJECT_DIRECTORY:-}
       - MIN_REPLICAS=${MIN_REPLICAS}
       - MAX_REPLICAS=${MAX_REPLICAS} # Adjust as needed
       - SCALE_UP_QUEUE_THRESHOLD=${SCALE_UP_QUEUE_THRESHOLD} # Scale up if queue length > 5
@@ -345,6 +347,12 @@ services:
     volumes:
       - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
       - ./.env:/app/.env
+      # Mirror the project at its host path so Compose env_file and bind paths
+      # resolve identically when the CLI runs inside the autoscaler container.
+      - type: bind
+        source: ${AUTOSCALER_PROJECT_DIRECTORY:-${PWD}}
+        target: ${AUTOSCALER_PROJECT_DIRECTORY:-${PWD}}
+        read_only: true
     depends_on:
       redis:
         condition: service_healthy
